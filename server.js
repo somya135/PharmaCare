@@ -7,6 +7,8 @@ var express = require('express'),
     connection = require("./server/config/db"); //mongodb connection
 
 // creating express server
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
 var app = express();
 
 //========= configuration ==========
@@ -19,11 +21,31 @@ app.use(bodyParser.json());
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
 
+// Middleware to set correct Content-Type for CSS files
+app.use((req, res, next) => {
+    if (req.url.endsWith('.css')) {
+      res.type('text/css');
+    }
+    next();
+  });
+
 // setting static files location './app' for angular app html and js
 app.use(express.static(path.join(__dirname, 'app')));
 // setting static files location './node_modules' for libs like angular, bootstrap
 app.use(express.static('node_modules'));
 
+// Proxy middleware for setting correct Content-Type header for Bootstrap CSS
+const cssProxy = createProxyMiddleware('/node_modules/bootstrap/dist/css/bootstrap.css', {
+    target: 'http://localhost', // Change this if your server is on a different host/port
+    changeOrigin: true,
+    onProxyRes(proxyRes, req, res) {
+      if (proxyRes.headers['content-type'] === 'text/html') {
+        proxyRes.headers['content-type'] = 'text/css';
+      }
+    },
+  });
+  app.use(cssProxy);
+  
 // configure our routes
 app.use('/', routes);
 app.use('/api', apiRoutes);
